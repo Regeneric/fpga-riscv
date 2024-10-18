@@ -53,90 +53,90 @@ localparam funct7_1 = 7'b0100000;
 localparam opRtype = 7'b0110011;
 
 task ADD;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3ADD, rd, opRtype);
     end
 endtask
 
 task SUB;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_1, rs2, rs1, f3SUB, rd, opRtype);
     end
 endtask
 
 task SLL;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3SLL, rd, opRtype);
     end
 endtask
 
 task SLT;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3SLT, rd, opRtype);
     end
 endtask
 
 task SLTU;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3SLTU, rd, opRtype);
     end
 endtask
 
 task XOR;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3XOR, rd, opRtype);
     end
 endtask
 
 task SRL;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3SRL, rd, opRtype);
     end
 endtask
 
 task SRA;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3SRA, rd, opRtype);
     end
 endtask
 
 task OR;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3OR, rd, opRtype);
     end
 endtask
 
 task AND;
+    input [4:0] rd;
     input [4:0] rs1;
     input [4:0] rs2;
-    input [4:0] rd;
     begin
         RType(funct7_0, rs2, rs1, f3AND, rd, opRtype);
     end
@@ -163,48 +163,54 @@ endtask
 localparam opItype = 7'b0010011;
 
 task ADDI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3ADD, rd, opItype);
     end
 endtask
 
 task SLTI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3SLT, rd, opItype);
     end
 endtask
 
 task SLTUI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3SLTU, rd, opItype);
     end
 endtask
 
 task XORI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3XOR, rd, opItype);
     end
 endtask
 
 task ORI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3OR, rd, opItype);
     end
 endtask
 
 task ANDI;
-    input [4:0] rs1;
     input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         IType(imm, rs1, f3AND, rd, opItype);
     end
@@ -214,27 +220,27 @@ endtask
 // (rs2 is replaced with shift_amount=imm[4:0])  
 
 task SLLI;
-    input [4:0]  rs1;
-    input [4:0]  rd;
-    input [31:0] imm;
+    input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         RType(funct7_0, imm[4:0], rs1, f3SLL, rd, opItype);
     end
 endtask
 
 task SRLI;
-    input [4:0]  rs1;
-    input [4:0]  rd;
-    input [31:0] imm;
+    input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         RType(funct7_0, imm[4:0], rs1, f3SRL, rd, opItype);
     end
 endtask
 
 task SRAI;
-    input [4:0]  rs1;
-    input [4:0]  rd;
-    input [31:0] imm;
+    input [4:0] rd;
+    input [4:0] rs1;
+    input [4:0] imm;
     begin
         RType(funct7_1, imm[4:0], rs1, f3SRA, rd, opItype);
     end
@@ -258,8 +264,8 @@ task JType;
 endtask
 
 task JAL;
-    input [31:0] imm;
     input [4:0]  rd;
+    input [31:0] imm;
     begin
         JType(imm, rd, 7'b1101111);
     end 
@@ -268,8 +274,8 @@ endtask
 // JALR is encoded in the I-Type format.
 
 task JALR;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
     input [31:0] imm;
     begin
         IType(imm, rs1, 0'b000, rd, 7'b1100111);
@@ -404,45 +410,45 @@ localparam f3LHU = 3'b101;
 localparam opLoad = 7'b0000011;
 
 task LB;
-    input [31:0] imm;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
+    input [31:0] imm;
     begin
         IType(imm, rs1, f3LB, rd, opLoad);
     end
 endtask
 
 task LH;
-    input [31:0] imm;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
+    input [31:0] imm;
     begin
         IType(imm, rs1, f3LH, rd, opLoad);
     end
 endtask
 
 task LW;
-    input [31:0] imm;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
+    input [31:0] imm;
     begin
         IType(imm, rs1, f3LW, rd, opLoad);
     end
 endtask
 
 task LBU;
-    input [31:0] imm;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
+    input [31:0] imm;
     begin
         IType(imm, rs1, f3LBU, rd, opLoad);
     end
 endtask
 
 task LHU;
-    input [31:0] imm;
-    input [4:0]  rs1;
     input [4:0]  rd;
+    input [4:0]  rs1;
+    input [31:0] imm;
     begin
         IType(imm, rs1, f3LHU, rd, opLoad);
     end
@@ -473,27 +479,27 @@ localparam f3SW = 3'b010;
 localparam opStore = 7'b0100011;
 
 task SB;
-    input [32:0] imm;
-    input [4:0]  rs2;
     input [4:0]  rs1;
+    input [4:0]  rs2;
+    input [32:0] imm;
     begin
         SType(imm, rs2, rs1, f3SB, opStore);
     end
 endtask
 
 task SH;
-    input [32:0] imm;
-    input [4:0]  rs2;
     input [4:0]  rs1;
+    input [4:0]  rs2;
+    input [32:0] imm;
     begin
         SType(imm, rs2, rs1, f3SH, opStore);
     end
 endtask
 
 task SW;
-    input [32:0] imm;
-    input [4:0]  rs2;
     input [4:0]  rs1;
+    input [4:0]  rs2;
+    input [32:0] imm;
     begin
         SType(imm, rs2, rs1, f3SW, opStore);
     end
