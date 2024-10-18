@@ -287,12 +287,12 @@ task BType;
     end
 endtask
 
-localparam f3BEQ  = 0'b000;
-localparam f3BNE  = 0'b001;
-localparam f3BLT  = 0'b100;
-localparam f3BGE  = 0'b101;
-localparam f3BLTU = 0'b110;
-localparam f3BGEU = 0'b111;
+localparam f3BEQ  = 3'b000;
+localparam f3BNE  = 3'b001;
+localparam f3BLT  = 3'b100;
+localparam f3BGE  = 3'b101;
+localparam f3BLTU = 3'b110;
+localparam f3BGEU = 3'b111;
 
 localparam opBtype = 7'b1100011;
 
@@ -351,9 +351,10 @@ task BGEU;
 endtask
 
 
-// U-Type instructions
+// U-Type  ;  Upper Immediate Type  ;  20 bit value to upper bits  ;  rd, imm  ;  LUI, AUIPC  etc.
 // U-Type format  ;  imm_rd_opcode  ;  20b_5b_7b  ;  00000000000000000000_00000_0000000
-// if(rs1 OP rs2) PC <- PC+Bimm
+// rd <- Uimm
+// rd <- PC+Uimm
 
 task UType;
     input [31:0] imm;
@@ -380,3 +381,122 @@ task LUI;
         UType(imm, rd, 7'b0010111);
     end
 endtask
+
+
+// Load Instructions are I-Type instructions
+// I-Type  ;  Immediate Type  ;  register and value  ;  rs1, rd, imm  ;  LW, ADDI
+// I-Type format  ;  imm_rs1_funct3_rd_opcode  ;  12b_5b_3b_5b_7b  ;  000000000000_00000_000_00000_0000000
+// rd <- mem[rs1+Iimm]
+
+localparam f3LB  = 3'b000;
+localparam f3LH  = 3'b001;
+localparam f3LW  = 3'b010;
+localparam f3LBU = 3'b100;
+localparam f3LHU = 3'b101;
+
+localparam opLoad = 7'b0000011;
+
+task LB;
+    input [31:0] imm;
+    input [4:0]  rs1;
+    input [4:0]  rd;
+    begin
+        IType(imm, rs1, f3LB, rd, opLoad);
+    end
+endtask
+
+task LH;
+    input [31:0] imm;
+    input [4:0]  rs1;
+    input [4:0]  rd;
+    begin
+        IType(imm, rs1, f3LH, rd, opLoad);
+    end
+endtask
+
+task LW;
+    input [31:0] imm;
+    input [4:0]  rs1;
+    input [4:0]  rd;
+    begin
+        IType(imm, rs1, f3LW, rd, opLoad);
+    end
+endtask
+
+task LBU;
+    input [31:0] imm;
+    input [4:0]  rs1;
+    input [4:0]  rd;
+    begin
+        IType(imm, rs1, f3LBU, rd, opLoad);
+    end
+endtask
+
+task LHU;
+    input [31:0] imm;
+    input [4:0]  rs1;
+    input [4:0]  rd;
+    begin
+        IType(imm, rs1, f3LHU, rd, opLoad);
+    end
+endtask
+
+
+// S-Type  ;  Store Type  ;  register-to-memory  ;  mem, rs1, rs2  ;  SW, SB etc.
+// S-Type format  ;  imm_rs2_rs1_funct3_imm_opcode  ;  7b_5b_5b_3b_5b_7b  ;  0000000_00000_00000_000_00000_0000000
+// S-Type format  ;  imm_rs2_rs1_funct3_opcode      ;  12b_5b_5b_3b_7b    ;  000000000000_00000_00000_000_0000000
+// mem[rs1+Simm] <- rs2
+
+task SType;
+    input [31:0] imm;
+    input [4:0]  rs2;
+    input [4:0]  rs1;
+    input [2:0]  funct3;
+    input [6:0]  opcode;
+    begin
+        MEM[memPC[31:2]] = {imm[11:15], rs2, rs1, funct3, imm[4:0], opcode};
+        memPC = memPC+4;
+    end
+endtask
+
+localparam f3SB = 3'b000;
+localparam f3SH = 3'b001;
+localparam f3SW = 3'b010;
+
+localparam opStore = 7'b0100011;
+
+task SB;
+    input [32:0] imm;
+    input [4:0]  rs2;
+    input [4:0]  rs1;
+    begin
+        SType(imm, rs2, rs1, f3SB, opStore);
+    end
+endtask
+
+task SH;
+    input [32:0] imm;
+    input [4:0]  rs2;
+    input [4:0]  rs1;
+    begin
+        SType(imm, rs2, rs1, f3SH, opStore);
+    end
+endtask
+
+task SW;
+    input [32:0] imm;
+    input [4:0]  rs2;
+    input [4:0]  rs1;
+    begin
+        SType(imm, rs2, rs1, f3SW, opStore);
+    end
+endtask
+
+
+// System Instructions
+task EBREAK;
+   begin
+      MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
+      memPC = memPC + 4;
+   end
+endtask 
