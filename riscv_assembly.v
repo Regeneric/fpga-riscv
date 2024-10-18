@@ -506,10 +506,205 @@ task SW;
 endtask
 
 
+//
 // System Instructions
+
+localparam opSystem = 7'b1110011;
+
+task FENCE;
+    input [3:0] pred;
+    input [3:0] succ;
+    begin
+        MEM[memPC[31:2]] = {4'b0000, pred, succ, 5'b00000, 3'b000, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+task FENCE_I;
+    begin
+        MEM[memPC[31:2]] = {4'b0000, 4'b0000, 4'b0000, 5'b00000, 3'b001, 5'b00000, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+task ECALL;
+    begin
+        MEM[memPC[31:]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
 task EBREAK;
    begin
-      MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, 7'b1110011};
-      memPC = memPC + 4;
+      MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, opSystem};
+      memPC = memPC+4;
    end
 endtask 
+
+task CSRRW;
+    input [4:0]  rd;
+    input [11:0] csr;
+    input [4:0]  rs1;
+    begin
+        MEM[memPC[31:2]] = {csr, rs1, 3'b010, rd, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+task CSRRC;
+    input [4:0]  rd;
+    input [11:0] csr;
+    input [4:0]  rs1;
+    begin
+        MEM[memPC[31:2]] = {csr, rs1, 3'b011, rd, opSystem};
+        memPC = memPC+4;
+    end 
+endtask
+
+task CSRRWI;
+    input [4:0]  rd;
+    input [11:0] csr;
+    input [32:0] imm;
+    begin
+        MEM[memPC[31:2]] = {csr, imm[4:0], 3'b101, rd, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+task CSRRI;
+    input [4:0]  rd;
+    input [11:0] csr;
+    input [31:0] imm;
+    begin
+        MEM[memPC[31:2]] = {csr, imm[4:0], 3'b101, rd, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+task CSRRCI;
+    input [4:0]  rd;
+    input [11:0] csr;
+    input [31:0] imm;
+    begin
+        MEM[memPC[31:2]] = {csr, imm[4:0], 3'b111, rd, opSystem};
+        memPC = memPC+4;
+    end
+endtask
+
+
+//
+// Pseudo Instructions
+
+task NOP;
+    begin
+        ADD(zero, zero, zero);
+    end
+endtask
+
+
+/*
+  https://stackoverflow.com/questions/50742420/
+  risc-v-build-32-bit-constants-with-lui-and-addi
+  Add imm[11] << 12 to the constant passed to LUI
+  if imm[11] == 1
+*/
+task LI;
+    input [4:0]  rd;
+    input [31:0] imm;
+    begin
+        if(imm == 0) begin
+            ADD(rd, zero, zero);
+        end else if($signed(imm) >= -2048 && $signed(imm) < 2048) begin
+            ADDI(rd, zero, imm);
+        end else begin
+            LUI(rd, imm+(imm[11] << 12));
+            if(imm[11:0] != 0) begin
+                ADDI(rd, rd, imm[11:0]);
+            end
+        end
+    end
+endtask
+
+task CALL;
+    input [31:0] offset;
+    begin
+        AUIPC(t1, offset);
+        JALR(ra, t1, offset[11:0]);
+    end
+endtask
+
+task RET;
+    begin
+        JALR(zero, ra, 0);
+    end
+endtask
+
+task MV;
+    input [4:0] rd;
+    input [4:0] rs1;
+    begin
+        ADD(rd, rs1, zero);
+    end
+endtask
+
+task J;
+    input [31:0] imm;
+    begin
+        JAL(zero, imm);
+    end
+endtask;
+
+task JR;
+    input [4:0]  rs1;
+    input [31:0] imm;
+    begin
+        JALR(zero, rs1, imm);
+    end
+endtask
+
+task BEQZ;
+    input [4:0]  rs1;
+    input [31:0] imm;
+    begin
+        BEQ(rs1, zero, imm);
+    end
+endtask
+
+task BNEZ;
+    input [4:0]  rs1;
+    input [31:0] imm;
+    begin
+        BNE(rs1, zero, imm);
+    end
+endtask
+
+task BGT;
+    input [4:0]  rs1;
+    input [4:0]  rs2;
+    input [31:0] imm;
+    begin
+        BLT(rs2, rs1, imm);
+    end
+endtask
+
+task DATAW;
+    input [31:0] w;
+    begin
+        MEM[memPC[31:2]] = w;
+        memPC = memPC+4;
+    end
+endtask
+
+task DATAB;
+    input [7:0] b1;
+    input [7:0] b2;
+    input [7:0] b3;
+    input [7:0] b4;
+    begin
+        MEM[memPC[31:2]][ 7: 0] = b1;
+        MEM[memPC[31:2]][15: 8] = b2;
+        MEM[memPC[31:2]][23:16] = b3;
+        MEM[memPC[31:2]][31:24] = b4;
+        memPC = memPC+4;
+    end
+endtask
