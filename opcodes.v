@@ -12,6 +12,9 @@ module SOC (
 wire clk;
 wire reset;
 
+reg [4:0] leds;
+assign LEDS = leds;
+
 Clockworks #(
     .SLOW(17)
 ) CW (
@@ -22,11 +25,10 @@ Clockworks #(
 );
 
 reg [31:0] MEM [0:255];     // 1 KiB of memory
-`include "riscv_assembly.v"
-
 reg [31:0] PC;              // Program Counter
 reg [31:0] instr;           // Current instruction
 
+`include "riscv_assembly.v"
 initial begin
     PC = 0;
     
@@ -153,7 +155,7 @@ always @(*) begin
         1 & 0 = 0  ;  ALUimm ADD
         1 & 1 = 1  ;  ALUreg SUB 
         */
-        3'b000: aluOut = (funct7[5] & instr[5]) ? aluIn1-aluIn2 : aluIn1+aluIn2;    
+        3'b000: aluOut = (funct7[5] & instr[5]) ? (aluIn1-aluIn2) : (aluIn1+aluIn2);    
         
         3'b001: aluOut = aluIn1 << shiftAmmount;
         3'b010: aluOut = ($signed(aluIn1) < $signed(aluIn2));
@@ -179,9 +181,21 @@ For each instruction, we need to do the following four things:
   - Compute `rs1 OP rs2`, where `OP` depends on `funct3` and `funct7`
   - Store the result in `rd`:  RegisterBank[rdId] <= writeBackData  
 */
-reg [31:0] RegisterBank [0:31];
-reg [31:0] rs1;
-reg [31:0] rs2;
+reg  [31:0] RegisterBank [0:31];
+reg  [31:0] rs1;
+reg  [31:0] rs2;
+wire [31:0] writeBackData;
+wire        writeBackEn;
+
+`ifdef BENCH   
+    integer i;
+    initial begin
+        for(i=0; i<32; ++i) begin
+	        RegisterBank[i] = 0;
+        end
+    end
+`endif 
+
 
 // The first three operations are implemented by a state machine
 localparam FETCH_INSTR = 0;
@@ -192,7 +206,7 @@ reg [1:0] state = FETCH_INSTR;
 always @(posedge clk) begin
     case(state)
         FETCH_INSTR: begin
-            instr <= MEM[PC];
+            instr <= MEM[PC[31:2]];
             state <= FETCH_REGS;
         end
 
@@ -203,60 +217,71 @@ always @(posedge clk) begin
         end
 
         EXECUTE: begin
-            PC <= PC+1;
+            if(!isSYSTEM) begin
+                PC <= nextPC;
+            end
             state <= FETCH_INSTR;
+
+            `ifdef BENCH
+                if(isSYSTEM) $finish();
+            `endif
         end
     endcase
 end 
 
 // The fourth one (register write-back)
-wire [31:0] writeBackData = aluOut;
-wire        writeBackEn = (state == EXECUTE && (isALUreg || isALUimm));
+assign writeBackData = (isJAL || isJALR) ? (PC+4) : aluOut;
+assign writeBackEn   = (state == EXECUTE && 
+                           (isALUreg || isALUimm ||
+                            isJAL    || isJALR)
+                          );
+wire [31:0] nextPC = isJAL ? PC+Jimm :
+                     isJALR ? PC+Iimm :
+                     PC+4;
+
 always @(posedge clk) begin
     // Writing to register 0 (x0) has no effect, hence the check
     if(writeBackEn && rdId != 0) begin
         RegisterBank[rdId] <= writeBackData;
+
+        // DEBUG
+        if(rdId == 1) begin
+            leds <= writeBackData;
+        end
+        `ifdef BENCH
+            $display("x%0d <= %b", rdId, writeBackData);
+        `endif
     end
 end
 
-assign LEDS = isSYSTEM ? 31 : {PC[0],isALUreg,isALUimm,isStore,isLoad};
 
 `ifdef BENCH
     always @(posedge clk) begin
-        $display("PC = %0d", PC);
-        case(1'b1)
-            isALUreg: $display(
-                "ALUreg rd=%d rs1=%d, rs2=%d funct3=%b",
-                rdId, rs1Id, rs2Id, funct3
-            );
+        if(state == FETCH_REGS) begin
+            case(1'b1)
+                isALUreg: $display(
+                    "ALUreg rd=%d rs1=%d, rs2=%d funct3=%b",
+                    rdId, rs1Id, rs2Id, funct3
+                );
 
-            isALUimm: $display(
-                "ALUImm rd=%d rs1=%d imm=%0d funct3=%b",
-                rdId, rs1Id, Iimm, funct3
-            );
+                isALUimm: $display(
+                    "ALUImm rd=%d rs1=%d imm=%0d funct3=%b",
+                    rdId, rs1Id, Iimm, funct3
+                );
 
-            isBranch: $display("BRANCH");
-            isJAL:    $display("JAL");
-            isJALR:   $display("JALR");
-            isAUIPC:  $display("AUPIC");
-            isLUI:    $display("LUI");
-            isLoad:   $display("LOAD");
-            isStore:  $display("STORE");
-            isSYSTEM: $display("SYSTEM");
-        endcase
+                isBranch: $display("BRANCH");
+                isJAL:    $display("JAL");
+                isJALR:   $display("JALR");
+                isAUIPC:  $display("AUPIC");
+                isLUI:    $display("LUI");
+                isLoad:   $display("LOAD");
+                isStore:  $display("STORE");
+                isSYSTEM: $display("SYSTEM");
+            endcase
+            if(isSYSTEM) $finish();
+        end
     end
 `endif
 
-
-always @(posedge clk) begin
-    if(!isSYSTEM) begin
-        instr <= MEM[PC];
-        PC <= PC+1;
-    end
-
-    `ifdef BENCH
-        if(isSYSTEM) $finish();
-    `endif
-end
 
 endmodule
