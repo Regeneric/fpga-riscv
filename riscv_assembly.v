@@ -708,3 +708,52 @@ task DATAB;
         memPC = memPC+4;
     end
 endtask
+
+
+//
+// Labels
+
+integer ASMerror = 0;
+
+task Label;
+    inout integer L;
+    begin
+       `ifdef BENCH
+            if(L[0] === 1'bx) begin
+                $display("Missing label initialization!");
+                ASMerror = 1;
+            end else if(L != memPC) begin
+                $display("Incorrect label initialization!");
+                $display("Expected: %0d     Got: %0d", memPC, L);
+                ASMerror = 1;
+            end
+            $display("Label: ", memPC);
+        `endif
+    end
+endtask
+
+function [31:0] LabelRef;
+    input integer L;
+    begin
+        `ifdef BENCH
+            if(L[0] === 1'bx) begin
+                $display("Reference to uninitialized label!");
+                ASMerror = 1;
+            end
+        `endif
+        
+        LabelRef = L - memPC;
+    end 
+endfunction
+
+task endASM;
+    begin
+        `ifdef GET_ASM_LABELS
+            $finish();
+        `endif
+        
+        `ifdef BENCH
+            if(ASMerror) $finish();
+        `endif
+    end 
+endtask

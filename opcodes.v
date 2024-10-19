@@ -55,6 +55,16 @@ initial begin
     EBREAK();
 end
 
+// // Infinite loop
+// integer L0_ = 4;
+// initial begin
+//     ADD(ra, zero, zero);
+//     Label(L0_);
+//         ADDI(ra, ra, 1);
+//         JAL(zero, LabelRef(L0_));
+//         EBREAK();
+//         endASM();   
+// end
 
 // R-Type  ;  Register Type         ;  register-to-register operations  ;  rd, rs1 and rs2  ;  ADD, SUB    etc.
 // I-Type  ;  Immediate Type        ;  register and value               ;  rs1, rs2, imm    ;  LW, ADDI    etc.
