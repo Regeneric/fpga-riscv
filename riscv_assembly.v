@@ -13,7 +13,6 @@ localparam  zero = x0, ra = x1, sp = x2, gp = x3, tp = x4, t0 = x5, t1 = x6,
             s4   =x20, s5 =x21, s6 =x22, s7 =x23, s8 =x24, s9 =x25, s10=x26,
             s11  =x27, t3 =x28, t4 =x29, t5 =x30, t6 =x31; 
 
-localparam [31:0] NOP_OPCODE = 32'b0000000_00000_00000_000_00000_0110011;   // add x0, x0, x0
 
 // R-Type  ;  Register Type  ;  register-to-register operations  ;  rd, rs1 and rs2  ;  ADD, SUB  etc.
 // R-Type format  ;  funct7_rs2_rs1_funct3_rd_opcode  ;  7b_5b_5b_3b_5b_7b  ;  0000000_00000_00000_000_00000_0000000
@@ -278,7 +277,7 @@ task JALR;
     input [4:0]  rs1;
     input [31:0] imm;
     begin
-        IType(imm, rs1, 0'b000, rd, 7'b1100111);
+        IType(imm, rs1, 3'b000, rd, 7'b1100111);
     end
 endtask
 
@@ -387,7 +386,7 @@ task LUI;
     end
 endtask
 
-task LUI;
+task AUIPC;
     input [4:0]  rd;
     input [31:0] imm;
     begin
@@ -467,7 +466,7 @@ task SType;
     input [2:0]  funct3;
     input [6:0]  opcode;
     begin
-        MEM[memPC[31:2]] = {imm[11:15], rs2, rs1, funct3, imm[4:0], opcode};
+        MEM[memPC[31:2]] = {imm[11:5], rs2, rs1, funct3, imm[4:0], opcode};
         memPC = memPC+4;
     end
 endtask
@@ -529,7 +528,7 @@ endtask
 
 task ECALL;
     begin
-        MEM[memPC[31:]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, opSystem};
+        MEM[memPC[31:2]] = {12'b000000000001, 5'b00000, 3'b000, 5'b00000, opSystem};
         memPC = memPC+4;
     end
 endtask
@@ -595,6 +594,7 @@ endtask
 //
 // Pseudo Instructions
 
+localparam [31:0] NOP_OPCODE = 32'b0000000_00000_00000_000_00000_0110011;   // add x0, x0, x0
 task NOP;
     begin
         ADD(zero, zero, zero);
