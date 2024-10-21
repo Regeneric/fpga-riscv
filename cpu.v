@@ -227,20 +227,24 @@ always @(posedge clk) begin
                 PC <= nextPC;
             end
             state <= FETCH_INSTR;
-
-            `ifdef BENCH
-                if(isSYSTEM) $finish();
-            `endif
         end
     endcase
 end 
 
 // The fourth one (register write-back)
-assign writeBackData = (isJAL || isJALR) ? (PC+4) : aluOut;
-assign writeBackEn   = (state == EXECUTE && 
-                           (isALUreg || isALUimm ||
-                            isJAL    || isJALR)
-                          );
+assign writeBackData = (isJAL || isJALR) ? (PC+4)    : 
+                       (isLUI)           ?  Uimm     :
+                       (isAUIPC)         ? (PC+Uimm) :
+                        aluOut;
+
+assign writeBackEn   = (state == EXECUTE && (
+                         isALUreg || 
+                         isALUimm ||
+                         isJAL    || 
+                         isJALR   ||
+                         isLUI    ||
+                         isAUIPC));
+
 wire [31:0] nextPC = (isBranch && takeBranch) ? PC+Bimm  :
                       isJAL                   ? PC+Jimm  :
                       isJALR                  ? rs1+Iimm :
@@ -251,10 +255,6 @@ always @(posedge clk) begin
     if(writeBackEn && rdId != 0) begin
         RegisterBank[rdId] <= writeBackData;
 
-        // DEBUG
-        if(rdId == 1) begin
-            leds <= writeBackData;
-        end
         `ifdef BENCH
             $display("x%0d <= %b", rdId, writeBackData);
         `endif
