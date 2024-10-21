@@ -25,35 +25,35 @@ Clockworks #(
 );
 
 reg [31:0] MEM [0:255];     // 1 KiB of memory
-reg [31:0] PC;              // Program Counter
+reg [31:0] PC = 0;              // Program Counter
 reg [31:0] instr;           // Current instruction
 
 `include "riscv_assembly.v"
-initial begin
-    PC = 0;
+// initial begin
+//     PC = 0;
     
-    ADD(zero, zero, zero);
-    ADD(ra, zero, zero);
+//     ADD(zero, zero, zero);
+//     ADD(ra, zero, zero);
     
-    NOP();
-    NOP();
-    NOP();
+//     NOP();
+//     NOP();
+//     NOP();
 
-    ADDI(ra, ra, 1);
-    ADDI(ra, ra, 1);
-    ADDI(ra, ra, 1);
-    ADDI(ra, ra, 1);
+//     ADDI(ra, ra, 1);
+//     ADDI(ra, ra, 1);
+//     ADDI(ra, ra, 1);
+//     ADDI(ra, ra, 1);
 
-    ADD(sp, ra, zero);
-    ADD(gp, ra, sp);
+//     ADD(sp, ra, zero);
+//     ADD(gp, ra, sp);
     
-    SRLI(gp, gp, 3);
-    SLLI(gp, gp, 31);
-    SRAI(gp, gp, 5);
-    SRLI(ra, gp, 26);
+//     SRLI(gp, gp, 3);
+//     SLLI(gp, gp, 31);
+//     SRAI(gp, gp, 5);
+//     SRLI(ra, gp, 26);
 
-    EBREAK();
-end
+//     EBREAK();
+// end
 
 // // Infinite loop
 // integer L0_ = 4;
@@ -65,6 +65,21 @@ end
 //         EBREAK();
 //         endASM();   
 // end
+
+integer L0_ = 8;
+initial begin
+    ADD(x1, x0, x0);
+    ADDI(x2, x0, 32);
+
+    Label(L0_);
+        ADDI(x1, x1, 1);
+        BNE(x1, x2, LabelRef(L0_));
+        EBREAK();
+
+        endASM();
+end
+
+
 
 // R-Type  ;  Register Type         ;  register-to-register operations  ;  rd, rs1 and rs2  ;  ADD, SUB    etc.
 // I-Type  ;  Immediate Type        ;  register and value               ;  rs1, rs2, imm    ;  LW, ADDI    etc.
@@ -127,7 +142,7 @@ The syntax {{A{instr[B]}}, instr[C:D],instr[E:F]} combines two parts:
 */
 wire [31:0] Simm = {{21{instr[31]}}, instr[30:25],instr[11:7]};
 
-wire [31:0] Bimm = {{20{instr[31]}}, instr[7],instr[30:20],instr[11:8],1'b0};
+wire [31:0] Bimm = {{20{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
 wire [31:0] Jimm = {{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
 
 
@@ -180,6 +195,31 @@ always @(*) begin
         
         3'b110: aluOut = (aluIn1 | aluIn2);
         3'b111: aluOut = (aluIn1 & aluIn2);
+    endcase
+end
+
+
+/*
+  There are 6 different branch instructions:
+
+  funct3 (OP):
+  3'b000  ;  BEQ   ;  if(rs1 == rs2) PC <- PC+Bimm
+  3'b001  ;  BNE   ;  if(rs1 != rs2) PC <- PC+Bimm
+  3'b100  ;  BLT   ;  if(signed(rs1) < signed(rs2)) PC <- PC+Bimm 
+  3'b101  ;  BGT   ;  if(signed(rs1) >= signed(rs)) PC <- PC+Bimm
+  3'b110  ;  BLTU  ;  if(unsigned(rs1) < unsigned(rs2)) PC <- PC+Bimm
+  3'b111  ;  BGEU  ;  if(unsigned(rs1) >= unsigned(rs2)) PC <- PC+Bimm
+*/
+reg takeBranch;
+always @(*) begin
+    case(funct3)
+        3'b000: takeBranch = (rs1 == rs2);
+        3'b001: takeBranch = (rs1 != rs2);
+        3'b100: takeBranch = ($signed(rs1) < $signed(rs2));
+        3'b101: takeBranch = ($signed(rs1) >= $signed(rs2));
+        3'b110: takeBranch = (rs1 < rs2);
+        3'b111: takeBranch = (rs1 >= rs2);
+        default: takeBranch = 1'b0;
     endcase
 end
 
@@ -245,9 +285,10 @@ assign writeBackEn   = (state == EXECUTE &&
                            (isALUreg || isALUimm ||
                             isJAL    || isJALR)
                           );
-wire [31:0] nextPC = isJAL ? PC+Jimm :
-                     isJALR ? PC+Iimm :
-                     PC+4;
+wire [31:0] nextPC = (isBranch && takeBranch) ? PC+Bimm  :
+                      isJAL                   ? PC+Jimm  :
+                      isJALR                  ? rs1+Iimm :
+                      PC+4;
 
 always @(posedge clk) begin
     // Writing to register 0 (x0) has no effect, hence the check
