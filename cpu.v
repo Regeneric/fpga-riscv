@@ -25,59 +25,15 @@ Clockworks #(
 );
 
 reg [31:0] MEM [0:255];     // 1 KiB of memory
-reg [31:0] PC = 0;              // Program Counter
+reg [31:0] PC = 0;          // Program Counter
 reg [31:0] instr;           // Current instruction
 
 `include "riscv_assembly.v"
-// initial begin
-//     PC = 0;
-    
-//     ADD(zero, zero, zero);
-//     ADD(ra, zero, zero);
-    
-//     NOP();
-//     NOP();
-//     NOP();
 
-//     ADDI(ra, ra, 1);
-//     ADDI(ra, ra, 1);
-//     ADDI(ra, ra, 1);
-//     ADDI(ra, ra, 1);
-
-//     ADD(sp, ra, zero);
-//     ADD(gp, ra, sp);
-    
-//     SRLI(gp, gp, 3);
-//     SLLI(gp, gp, 31);
-//     SRAI(gp, gp, 5);
-//     SRLI(ra, gp, 26);
-
-//     EBREAK();
-// end
-
-// // Infinite loop
-// integer L0_ = 4;
-// initial begin
-//     ADD(ra, zero, zero);
-//     Label(L0_);
-//         ADDI(ra, ra, 1);
-//         JAL(zero, LabelRef(L0_));
-//         EBREAK();
-//         endASM();   
-// end
-
-integer L0_ = 8;
-initial begin
-    ADD(x1, x0, x0);
-    ADDI(x2, x0, 32);
-
-    Label(L0_);
-        ADDI(x1, x1, 1);
-        BNE(x1, x2, LabelRef(L0_));
-        EBREAK();
-
-        endASM();
-end
+// `include "programs/instructions_test.v"
+// `include "programs/inf_loop.v"
+// `include "programs/for_loop.v"
+`include "programs/kitt.v"
 
 
 
