@@ -117,8 +117,36 @@ module Processor (
     */
     wire [4:0]  shiftAmmount = isALUreg ? rs2[4:0] : instr[24:20];  // isALUreg ? R-Type : I-Type   ;  instr[24:20] is the same as rs2Id
     wire [31:0] aluIn1 = rs1;                                       // R-Type
-    wire [31:0] aluIn2 = isALUreg ? rs2 : Iimm;                     // I-Type
+    wire [31:0] aluIn2 = isALUreg | isBranch ? rs2 : Iimm;          // I-Type
     reg  [31:0] aluOut;
+    
+    // The adder is used by both arithmetic instructions and JALR.
+    wire [31:0] aluPlus = aluIn1 + aluIn2;
+
+    // Use a single 33 bits subtract to do subtraction and all comparisons
+    // (trick borrowed from swapforth/J1)
+    wire [32:0] aluMinus = {1'b1, ~aluIn2} + {1'b0, aluIn1} + 33'b1;    // Yes, [32:0]
+    
+    wire LT  = (aluIn1[31]^aluIn2[31]) ? aluIn1[31] : aluIn2[32];
+    wire LTU = aluMinus[32];
+    wire EQ  = (aluMinus[31:0] == 0);
+
+    // Flip a 32 bit word. Used by the shifter (a single shifter for left and right shifts)
+    function [31:0] flip32;
+        input [31:0] x;
+        flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7], 
+		          x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15], 
+		          x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
+		          x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
+    endfunction
+
+    wire [31:0] shifterIn = (funct3 == 3'b001) ? flip32(aluIn1) : aluIn1;
+    
+    /* verilator lint_off WIDTH */
+    wire [31:0] shifter   = $signed({instr[30] & aluIn1[31], shifterIn}) >>> aluIn2[4:0];
+    /* verilator lint_on WIDTH */
+
+    wire [31:0] leftShift = flip32(shifter);
 
     always @(*) begin
         case(funct3)
@@ -133,18 +161,18 @@ module Processor (
             1 & 0 = 0  ;  ALUimm ADD
             1 & 1 = 1  ;  ALUreg SUB 
             */
-            3'b000: aluOut = (funct7[5] & instr[5]) ? (aluIn1-aluIn2) : (aluIn1+aluIn2);    
+            3'b000: aluOut = (funct7[5] & instr[5]) ? aluMinus[31:0] : aluPlus;    
             
-            3'b001: aluOut = aluIn1 << shiftAmmount;
-            3'b010: aluOut = ($signed(aluIn1) < $signed(aluIn2));
-            3'b011: aluOut = (aluIn1 < aluIn2);
+            3'b001: aluOut = leftShift;
+            3'b010: aluOut = {31'b0, LT};
+            3'b011: aluOut = {31'b0, LTU};
             3'b100: aluOut = (aluIn1 ^ aluIn2);
 
             /*
             For logical or arithmetic right shift, one makes the difference also by testing funct7[5] 
             1 for arithmetic shift >>> (with sign expansion); 0 for logical shift >>.
             */
-            3'b101: aluOut = (funct7[5] ? ($signed(aluIn1) >>> shiftAmmount) : (aluIn1 >> shiftAmmount));
+            3'b101: aluOut = shifter;
             
             3'b110: aluOut = (aluIn1 | aluIn2);
             3'b111: aluOut = (aluIn1 & aluIn2);
@@ -166,12 +194,12 @@ module Processor (
     reg takeBranch;
     always @(*) begin
         case(funct3)
-            3'b000: takeBranch = (rs1 == rs2);
-            3'b001: takeBranch = (rs1 != rs2);
-            3'b100: takeBranch = ($signed(rs1) < $signed(rs2));
-            3'b101: takeBranch = ($signed(rs1) >= $signed(rs2));
-            3'b110: takeBranch = (rs1 < rs2);
-            3'b111: takeBranch = (rs1 >= rs2);
+            3'b000: takeBranch = EQ;
+            3'b001: takeBranch = !EQ;
+            3'b100: takeBranch = LT;
+            3'b101: takeBranch = !LT;
+            3'b110: takeBranch = LTU;
+            3'b111: takeBranch = !LTU;
             default: takeBranch = 1'b0;
         endcase
     end
@@ -185,9 +213,9 @@ module Processor (
     reg [1:0] state = FETCH_INSTR;
 
     // The fourth one (register write-back)
-    assign writeBackData = (isJAL || isJALR) ? (PC+4)    : 
+    assign writeBackData = (isJAL || isJALR) ? (PCplus4)    : 
                            (isLUI)           ?  Uimm     :
-                           (isAUIPC)         ? (PC+Uimm) :
+                           (isAUIPC)         ? (PCplusImm) :
                             aluOut;
 
     assign writeBackEn   = (state == EXECUTE && (
@@ -198,10 +226,14 @@ module Processor (
                             isLUI    ||
                             isAUIPC));
 
-    wire [31:0] nextPC   = (isBranch && takeBranch) ? PC+Bimm  :
-                            isJAL                   ? PC+Jimm  :
-                            isJALR                  ? rs1+Iimm :
-                            PC+4;
+    wire [31:0] PCplusImm = PC + (instr[3] ? Jimm[31:0] :
+                                  instr[4] ? Uimm[31:0] :
+                                             Bimm[31:0]);
+    wire [31:0] PCplus4 = PC+4;
+
+    wire [31:0] nextPC   = ((isBranch && takeBranch) || isJAL) ? PCplusImm             :
+                            isJALR                             ? {aluPlus[31:1],1'b0}  :
+                            PCplus4;
                           
 
     always @(posedge clk) begin
